@@ -1,3 +1,46 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+credentials.json
+token.json
+secrets.json
+secrets.yaml
+secrets.yml
+
+# Local data and generated results
+data/
+tmp/
 *.csv
-*.env
+*.parquet
+*.sqlite
+*.db
+
+# Python environments and caches
+.venv/
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter/IPython local state
+.ipynb_checkpoints/
+
+# Logs and local tool output
 *.log
+*.out
+
+# macOS and editor files
+.DS_Store
+.vscode/
+.idea/
