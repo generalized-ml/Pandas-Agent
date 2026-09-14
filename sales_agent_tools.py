@@ -90,48 +90,157 @@ Mean Percentage Error: {df['percentage_error'].mean():.2f}%
     return result
 
 
-def calculate_sales_growth(timeseries_id: str, start_date: str, end_date: str) -> str:
+def calculate_sales_growth(
+    timeseries_id: Optional[str] = None,
+    city: Optional[str] = None,
+    shop: Optional[str] = None,
+    brand: Optional[str] = None,
+    container: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    growth_type: Optional[str] = "monthly"
+) -> str:
     """
-    Calculate sales growth for a given timeseries_id and date range.
+    Calculate sales growth at any aggregation level with different growth rate types.
     
     Args:
-        timeseries_id: The unique identifier for the time series
-        start_date: Start date in YYYY-MM-DD format
-        end_date: End date in YYYY-MM-DD format
+        timeseries_id: The unique identifier for a specific time series (optional)
+        city: City name to filter by (optional)
+        shop: Shop name to filter by (optional)
+        brand: Brand name to filter by (optional)
+        container: Container type to filter by (optional)
+        start_date: Start date in YYYY-MM-DD format (optional)
+        end_date: End date in YYYY-MM-DD format (optional)
+        growth_type: Type of growth calculation - "monthly" (MoM), "quarterly" (QoQ), 
+                     "yearly" (YoY), or "period" (start to end). Default: "monthly"
     
     Returns:
         String with sales growth analysis
     """
-    df = df_combined[df_combined['timeseries_id'] == timeseries_id].copy()
+    # Filter data based on provided criteria
+    if timeseries_id:
+        df = df_combined[df_combined['timeseries_id'] == timeseries_id].copy()
+    else:
+        df = df_combined.copy()
+        if city:
+            df = df[df['city'] == city]
+        if shop:
+            df = df[df['shop'] == shop]
+        if brand:
+            df = df[df['brand'] == brand]
+        if container:
+            df = df[df['container'] == container]
     
     if df.empty:
-        return f"No data found for timeseries_id: {timeseries_id}"
+        return "No data found for the specified criteria"
     
-    df = df[(df['date'] >= pd.to_datetime(start_date)) & (df['date'] <= pd.to_datetime(end_date))]
+    # Apply date filters
+    if start_date:
+        df = df[df['date'] >= pd.to_datetime(start_date)]
+    if end_date:
+        df = df[df['date'] <= pd.to_datetime(end_date)]
     
     if len(df) < 2:
         return "Not enough data to calculate growth"
     
-    # Calculate month-over-month growth
+    # Sort by date
     df = df.sort_values('date')
-    df['sales_growth'] = df['sales'].pct_change() * 100
     
-    metadata = df[['city', 'shop', 'brand', 'container']].iloc[0]
+    # Add period columns for aggregation
+    df['year'] = df['date'].dt.year
+    df['quarter'] = df['date'].dt.quarter
+    df['month'] = df['date'].dt.month
+    df['year_month'] = df['date'].dt.to_period('M')
+    df['year_quarter'] = df['date'].dt.to_period('Q')
     
-    first_sales = df['sales'].iloc[0]
-    last_sales = df['sales'].iloc[-1]
-    total_growth = ((last_sales - first_sales) / first_sales) * 100
+    # Determine aggregation level description
+    filters = []
+    if timeseries_id:
+        metadata = df[['city', 'shop', 'brand', 'container']].iloc[0]
+        level_desc = f"Time Series: {metadata['city']} - {metadata['shop']} - {metadata['brand']} - {metadata['container']}"
+    else:
+        if city:
+            filters.append(f"City: {city}")
+        if shop:
+            filters.append(f"Shop: {shop}")
+        if brand:
+            filters.append(f"Brand: {brand}")
+        if container:
+            filters.append(f"Container: {container}")
+        level_desc = ", ".join(filters) if filters else "All Data"
     
-    result = f"""Sales Growth Analysis for {timeseries_id}:
-Location: {metadata['city']} - {metadata['shop']}
-Product: {metadata['brand']} - {metadata['container']}
+    # Calculate growth based on growth_type
+    growth_type = growth_type.lower() if growth_type else "monthly"
+    
+    if growth_type in ["monthly", "mom", "month"]:
+        # Month-over-Month growth
+        agg_df = df.groupby('year_month')['sales'].sum().reset_index()
+        agg_df.columns = ['period', 'sales']
+        agg_df['sales_growth'] = agg_df['sales'].pct_change() * 100
+        period_label = "Month-over-Month"
+        
+    elif growth_type in ["quarterly", "qoq", "quarter"]:
+        # Quarter-over-Quarter growth
+        agg_df = df.groupby('year_quarter')['sales'].sum().reset_index()
+        agg_df.columns = ['period', 'sales']
+        agg_df['sales_growth'] = agg_df['sales'].pct_change() * 100
+        period_label = "Quarter-over-Quarter"
+        
+    elif growth_type in ["yearly", "yoy", "year", "annual"]:
+        # Year-over-Year growth
+        agg_df = df.groupby('year')['sales'].sum().reset_index()
+        agg_df.columns = ['period', 'sales']
+        agg_df['sales_growth'] = agg_df['sales'].pct_change() * 100
+        period_label = "Year-over-Year"
+        
+    elif growth_type in ["period", "total", "overall"]:
+        # Total period growth (start to end)
+        first_sales = df['sales'].iloc[0]
+        last_sales = df['sales'].iloc[-1]
+        total_growth = ((last_sales - first_sales) / first_sales) * 100
+        
+        result = f"""Sales Growth Analysis ({level_desc}):
 Period: {df['date'].min().date()} to {df['date'].max().date()}
+Growth Type: Total Period Growth
 Starting Sales: ${first_sales:,.2f}
 Ending Sales: ${last_sales:,.2f}
 Total Growth: {total_growth:.2f}%
-Average Period Growth: {df['sales_growth'].mean():.2f}%
-Max Growth: {df['sales_growth'].max():.2f}%
-Min Growth: {df['sales_growth'].min():.2f}%
+Total Records: {len(df)}
+"""
+        return result
+    else:
+        return f"Invalid growth_type: {growth_type}. Use 'monthly', 'quarterly', 'yearly', or 'period'."
+    
+    # Calculate summary statistics
+    first_period_sales = agg_df['sales'].iloc[0]
+    last_period_sales = agg_df['sales'].iloc[-1]
+    total_growth = ((last_period_sales - first_period_sales) / first_period_sales) * 100
+    
+    # Get growth statistics (excluding NaN from first period)
+    growth_stats = agg_df['sales_growth'].dropna()
+    
+    result = f"""Sales Growth Analysis ({level_desc}):
+Period: {df['date'].min().date()} to {df['date'].max().date()}
+Growth Type: {period_label}
+Total Periods: {len(agg_df)}
+
+SALES SUMMARY:
+First Period Sales: ${first_period_sales:,.2f}
+Last Period Sales: ${last_period_sales:,.2f}
+Overall Growth: {total_growth:.2f}%
+
+GROWTH RATE STATISTICS:
+Average {period_label} Growth: {growth_stats.mean():.2f}%
+Median Growth: {growth_stats.median():.2f}%
+Max Growth: {growth_stats.max():.2f}%
+Min Growth: {growth_stats.min():.2f}%
+Std Deviation: {growth_stats.std():.2f}%
+
+TOP 5 GROWTH PERIODS:
+{agg_df.nlargest(5, 'sales_growth')[['period', 'sales', 'sales_growth']].to_string(index=False)}
+
+BOTTOM 5 GROWTH PERIODS:
+{agg_df.nsmallest(5, 'sales_growth')[['period', 'sales', 'sales_growth']].to_string(index=False)}
 """
     return result
 
