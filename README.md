@@ -2,7 +2,7 @@
 
 An intelligent AI-powered chatbot for analyzing time series sales data with forecasting capabilities, built using LangChain and Claude Sonnet 4.6.
 
-![Architecture Diagram](./data/time_series_design.png)
+![Architecture Diagram](./assets/time_series_design.png)
 
 ## 🌟 Overview
 
