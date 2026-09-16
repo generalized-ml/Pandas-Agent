@@ -309,19 +309,17 @@ Worst 5 Days by Absolute Error:
 
 def filter_the_data(city: Optional[str] = None, shop: Optional[str] = None, 
                     brand: Optional[str] = None, container: Optional[str] = None,
-                    start_date: Optional[str] = None, end_date: Optional[str] = None,
                     reset_filter: Optional[bool] = False) -> str:
     """
-    PRIMARY FILTERING TOOL: Filter the data based on given criteria and store for other tools.
+    PRIMARY FILTERING TOOL: Filter the data based on dimensions (NOT date/timestamp).
     All other tools will use this filtered data. Call this first before using other analysis tools.
+    Date filtering is handled by individual tools via start_date/end_date parameters.
     
     Args:
         city: City name to filter by (optional)
         shop: Shop name to filter by (optional)
         brand: Brand name to filter by (optional)
         container: Container type to filter by (optional)
-        start_date: Start date in YYYY-MM-DD format (optional)
-        end_date: End date in YYYY-MM-DD format (optional)
         reset_filter: Set to True to clear filters and work with all data (optional)
     
     Returns:
@@ -353,14 +351,6 @@ def filter_the_data(city: Optional[str] = None, shop: Optional[str] = None,
     if container:
         df = df[df['container'] == container]
         filters_applied.append(f"Container: {container}")
-    
-    if start_date:
-        df = df[df['date'] >= pd.to_datetime(start_date)]
-        filters_applied.append(f"Start Date: {start_date}")
-    
-    if end_date:
-        df = df[df['date'] <= pd.to_datetime(end_date)]
-        filters_applied.append(f"End Date: {end_date}")
     
     if df.empty:
         _filtered_data = None
@@ -399,6 +389,7 @@ Top 5 Product Combinations by Total Sales:
 {df.groupby(['city', 'shop', 'brand', 'container'])['sales'].sum().nlargest(5).to_string()}
 
 💡 This filtered data will be used by all subsequent analysis tools.
+⏰ Use start_date/end_date parameters in other tools for date filtering.
 """
     return result
 
