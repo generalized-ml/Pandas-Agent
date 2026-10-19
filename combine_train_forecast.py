@@ -21,10 +21,12 @@ df_train_prepared = df_train[['date', 'city', 'shop', 'brand', 'container', 'sal
 df_train_prepared['yhat'] = np.nan  # yhat is NaN for training data
 df_train_prepared['error'] = np.nan  # error is NaN for training data
 df_train_prepared['percentage_error'] = np.nan  # percentage_error is NaN for training data
+df_train_prepared['split'] = 'train'
 
 # Prepare forecast data with required columns
 df_forecast_prepared = df_forecast[['date', 'city', 'shop', 'brand', 'container', 'sales', 
                                      'yhat', 'error', 'percentage_error']].copy()
+df_forecast_prepared['split'] = 'test'
 
 # Concatenate training and forecast data
 df_combined = pd.concat([df_train_prepared, df_forecast_prepared], ignore_index=True)
@@ -48,7 +50,7 @@ def generate_timeseries_uuid(row):
 df_combined['timeseries_id'] = df_combined.apply(generate_timeseries_uuid, axis=1)
 
 # Reorder columns to have timeseries_id at the beginning
-cols = ['timeseries_id', 'date', 'city', 'shop', 'brand', 'container', 'sales', 'yhat', 'error', 'percentage_error']
+cols = ['timeseries_id', 'date', 'city', 'shop', 'brand', 'container', 'split', 'sales', 'yhat', 'error', 'percentage_error']
 df_combined = df_combined[cols]
 
 # Display summary information
